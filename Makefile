@@ -20,7 +20,8 @@
 
 
 # MCU name
-MCU = atmega8
+#MCU = atmega8
+MCU = atmega2560
 
 
 # Processor frequency.
@@ -28,7 +29,8 @@ MCU = atmega8
 #     processor frequency. You can then use this symbol in your source code to 
 #     calculate timings. Do NOT tack on a 'UL' at the end, this will be done
 #     automatically to create a 32-bit value in your source code.
-F_CPU = 7372800
+#F_CPU = 7372800
+F_CPU = 8000000
 
 
 # Target file name (without extension).
@@ -40,7 +42,9 @@ TARGET = stk500boot
 # BOOTLOADER_ADDRESS =  2 * ( (AVR-Flash size in words) - (boot-size in words) )
 # e.g. for ATmega8 and 512 words boot size:  2 * ( 4096 - 512 )   or  2 * ( 0x1000 - 0x200 ) = 0x1C00
 #      for ATmega32 and 512 words boot size: 2 * ( 16384 - 512 )  or  2 * ( 0x4000 - 0x200 ) = 0x7C00
-BOOTLOADER_ADDRESS = 0x1C00
+#BOOTLOADER_ADDRESS = 0x1C00
+## starts at 0x1F000 words => 0x3E000 bytes
+BOOTLOADER_ADDRESS = 0x3E000
 
 
 # List C source files here. (C dependencies are automatically generated.)
@@ -333,8 +337,8 @@ clean:
 
 
 # Include the dependency files.
-#-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*) 
--include $(shell mkdir .dep 2>NUL) $(wildcard .dep/*)
+-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*) 
+#-include $(shell mkdir .dep 2>NUL) $(wildcard .dep/*)
 
 
 # Listing of phony targets.
