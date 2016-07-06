@@ -1,0 +1,11 @@
+.dep
+stk500boot.eep
+stk500boot.elf
+stk500boot.hex
+stk500boot.i
+stk500boot.lss
+stk500boot.lst
+stk500boot.map
+stk500boot.o
+stk500boot.s
+stk500boot.sym

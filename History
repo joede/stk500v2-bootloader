@@ -1,0 +1,42 @@
++=========================================================================+
+|                          DEVELOPMENT HISTORY                            |
++=========================================================================+
+
+                  Project: STK500v2 Bootloader
+                   Author: Peter Fleury  <pfleury@gmx.ch>
+                           (changes by) J. Desch <github@jdesch.de>
+          Current Release: 1.0
+
++=========================================================================+
+|                         Copyright (c) J. Desch                          |
++=========================================================================+
+
+2016/07/06 - jd
+
+    ==> tested with: ATmega2560
+
+    * the bootloader starts using a real version. This version is 1.0 now.
+    * source is now hosted at github.
+    * configuration moved to separate header config.h
+    * add port initialization of the MCU IOs.
+    * add new enter mode ("called forced mode") which uses the UART
+      instead of a input pin. This feature can be disabled by uncommenting
+      REMOVE_FORCED_MODE_ENTER in config.h.
+    * the "pin mode" can be disabled by uncommenting REMOVE_PROG_PIN_ENTER
+      in config.h.
+    * add flashing to indicate entering the bootloader.
+    * the bootloader LED is active as long as the bootloader is running.
+    * prepared the detection of frame and overrun errors of the UART.
+      These error flags are used while running "forced enter".
+    * detection of watchdog resets added. If an watch reset occurs, the
+      bootloader starts the application immediantly. This feature can be
+      disabled by uncommenting REMOVE_WDT_RESET in config.h.
+
+2016/07/05 - jd
+
+    Forked from source code (file rev 1.15) available at 
+    http://tinyurl.com/peterfleury
+
++=========================================================================+
+| END OF FILE                                                             |
++=========================================================================+
