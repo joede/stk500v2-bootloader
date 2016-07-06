@@ -13,6 +13,20 @@ branch `vendor`. All my changes are done in the branch `develop` and than releas
 Since the original code has no version number, I use a version number for my changes. This version
 starts at 1.0.
 
+### Using stk500v2-bootloader in own projects
+
+The easiest way to use the bootloader is cloning the branch "master". All your
+changes should be made inside a local branch named by your project. In most
+cases, all the changes must be done only in `config.h` and `Makefile`.
+
+~~~shell
+$ git clone https://github.com/joede/stk500v2-bootloader.git
+$ cd stk500v2-bootloader
+$ git checkout -b tmp-my-funny-project
+$ edit config.h Makefile
+$ make
+~~~
+
 ## Overview
 
 This program allows an AVR with bootloader capabilities to read/write its own
@@ -95,7 +109,9 @@ Flash is always erased before programming.
 * Atmel Application Note AVR109 - Self-programming
 * Atmel Application Note AVR068 - STK500v2 Protocol
 
-### License
+
+
+## License
 
 Copyright (C) 2006 Peter Fleury
 
