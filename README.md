@@ -43,7 +43,7 @@ sequence of 5+ consecutive '*' at the UART. If this '*' sequence is received,
 the bootloader starts replying '*' and wait for an empty UART buffer. If no
 more data is fetched, the regular bootloader is entered.
 
-In best case, the size of the bootloader is less than 500 words, so it will
+In the best case, the size of the bootloader is less than 500 words, so it will
 fit into a 512 word bootloader section!
 
 ## Usage
@@ -61,7 +61,7 @@ fit into a 512 word bootloader section!
 - enable the BOOT Reset Vector (program BOOTRST)
 - Upload the hex file to the AVR using any ISP programmer
 - Program Boot Lock Mode to save the bootloader against overwriting.
-- Reset your AVR while keeping `PROG_PIN` pulled low
+- Reset your AVR while keeping `PROG_PIN` pulled low or sending the the '*' (*forced mode*).
 - Start AVRISP Programmer (AVRStudio/Tools/Program AVR)
 - AVRISP will detect the bootloader
 - Program your application FLASH file and optional EEPROM file using AVRISP
@@ -73,12 +73,20 @@ fit into a 512 word bootloader section!
 The bootload is always entered as long as there is no application available
 (flash at 0x0000 is 0xFF if no application is flashed). If an application
 is available (which is the normal use case), the bootloader would start the
-applcation unless the user forces the bootload to enter programming mode.
+application unless the user forces the bootload to enter programming mode.
 
 To force this, this release of stk500boot supports two modes.
 
 1. "pin mode": defines a bootmode pin which must be pressed (low active).
 2. "forced mode": wait for a pattern at the UART
+
+### LED signaling the start progress
+
+If a bootloader LED is defined, the progress of the bootloader start is visualized
+by flashing this LED. If the bootloader is entered, the LED will flash 3 times.
+After that, the regular checks are done (see section above). If the programming
+mode is entered, the LED flashes 2 times to indicate, that programming is
+possible now.
 
 ### Leaving the bootloader
 
