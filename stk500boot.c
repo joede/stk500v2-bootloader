@@ -2,6 +2,7 @@
 Title:     STK500v2 compatible bootloader
 Author:    Peter Fleury  <pfleury@gmx.ch> http://tinyurl.com/peterfleury
            Joerg Desch <github@jdesch.de> https://github.com/joede/stk500v2-bootloader
+Release:   1.1
 File:      stk500boot.c
 Compiler:  avr-gcc 4.8.1 / avr-libc 1.8
 Hardware:  All AVRs with bootloader support
@@ -446,10 +447,13 @@ static void leave_bootloader (void)
 #endif
     boot_rww_enable();              // enable application section
 
-    // Jump to Reset vector in Application Section
-    // (clear register, push this register to the stack twice = adress 0x0000/words, and return to this address)
+    // Jump to Reset vector in Application Section. The address is always 22bit (three bytes), even if the MCU
+    // hasn't more than 128 kB flash. The wrong stack is resetted by the startup code of the runtime of the
+    // application. This way we don't need ugly ifdefs.
+    // (clear register, push this register to the stack three times = adress 0x000000, and return to this address)
     asm volatile (
         "clr r1" "\n\t"
+        "push r1" "\n\t"
         "push r1" "\n\t"
         "push r1" "\n\t"
         "ret"     "\n\t"
