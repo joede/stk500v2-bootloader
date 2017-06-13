@@ -352,8 +352,8 @@ typedef uint16_t address_t;
 static void sendchar(char c);
 static unsigned char recchar(void);
 static void leave_bootloader(void);
-static char haveChar(char expected);
 #if defined(REMOVE_PROG_PIN_ENTER) && !defined(REMOVE_FORCED_MODE_ENTER)
+static char haveChar(char expected);
 static char check_forced_enter(void);
 #endif
 static void flash_led(uint8_t count);
@@ -407,6 +407,7 @@ static unsigned char recchar(void)
  * compare it. In this case a returned \x true means that we have received
  * a character. Even the overrun error and the frame error will be ignored.
  */
+#if defined(REMOVE_PROG_PIN_ENTER) && !defined(REMOVE_FORCED_MODE_ENTER)
 static char haveChar ( char expected )
 {
     uint8_t d, s;
@@ -422,7 +423,7 @@ static char haveChar ( char expected )
 	return 0;
     return ((expected==0x00)||(expected==d))?1:0;
 }
-
+#endif
 
 /* Leave the bootloader if application code is found.
  */
