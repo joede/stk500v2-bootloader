@@ -103,10 +103,12 @@ LICENSE:
 *****************************************************************************/
 
 #include <inttypes.h>
+#include <avr/cpufunc.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/boot.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include "command.h"
 #include "config.h"
 
@@ -349,6 +351,8 @@ typedef uint16_t address_t;
 /*
  * function prototypes
  */
+static inline void wdt_maybe_ping(void);
+static inline void wdt_maybe_ping_constant_time(void);
 static void sendchar(char c);
 static unsigned char recchar(void);
 static void leave_bootloader(void);
@@ -371,12 +375,29 @@ void __jumpMain(void)
     asm volatile ( ".set __stack, %0" :: "i" (RAMEND) );       // init stack
     asm volatile ( "clr __zero_reg__" );                       // GCC depends on register r1 set to 0
     asm volatile ( "out %0, __zero_reg__" :: "I" (_SFR_IO_ADDR(SREG)) );  // set SREG to 0
+    wdt_maybe_ping();
 #if !defined(REMOVE_PROG_PIN_ENTER) && !defined(REMOVE_PROG_PIN_PULLUP)
     PROG_PORT |= (1<<PROG_PIN);                                // Enable internal pullup
 #endif
     asm volatile ( "rjmp main");                               // jump to main()
 }
 
+static inline void wdt_maybe_ping(void)
+{
+#ifndef REMOVE_WDT_PING
+    wdt_reset();
+#endif
+}
+
+static inline void wdt_maybe_ping_constant_time(void)
+{
+/* hope WDT reset and NOP insns take the same time in every AVR uC */
+#ifndef REMOVE_WDT_PING
+    wdt_reset();
+#else
+    _NOP();
+#endif
+}
 
 /*
  * send single byte to USART, wait until transmission is completed
@@ -384,7 +405,9 @@ void __jumpMain(void)
 static void sendchar(char c)
 {
     UART_DATA_REG = c;                                         // prepare transmission
+    wdt_maybe_ping();
     while (!(UART_STATUS_REG & (1 << UART_TRANSMIT_COMPLETE)));// wait until byte sent
+    wdt_maybe_ping();                                          // TX should take less than WDT period
     UART_STATUS_REG |= (1 << UART_TRANSMIT_COMPLETE);          // delete TXCflag
 }
 
@@ -393,7 +416,10 @@ static void sendchar(char c)
  */
 static unsigned char recchar(void)
 {
+    do
+	wdt_maybe_ping();
     while(!(UART_STATUS_REG & (1 << UART_RECEIVE_COMPLETE)));  // wait for data
+
     //~ if ( ((UART_STATUS_REG&(1<<UART_FRAME_ERROR)) | (UART_STATUS_REG&(1<<UART_DATA_OVERRUN))) )
 	//~ return 0;
     return UART_DATA_REG;
@@ -448,6 +474,8 @@ static void leave_bootloader (void)
 #endif
     boot_rww_enable();              // enable application section
 
+    wdt_maybe_ping();
+
     // Jump to Reset vector in Application Section. The address is always 22bit (three bytes), even if the MCU
     // hasn't more than 128 kB flash. The wrong stack is resetted by the startup code of the runtime of the
     // application. This way we don't need ugly ifdefs.
@@ -484,7 +512,7 @@ static char check_forced_enter ( void )
     {
 	if ( count++ )
 	    for (l=0; l<(F_CPU/200); ++l)
-		;
+		wdt_maybe_ping_constant_time();
 	if ( haveChar('*') )
 	{
 	    ++matches;
@@ -505,7 +533,7 @@ static char check_forced_enter ( void )
 	sendchar('*');
 	if ( count++ )
 	    for (l=0; l<(F_CPU/200); ++l)
-		;
+		wdt_maybe_ping_constant_time();
 	if ( !haveChar(0x00) )
 	    ++matches;
 	else
@@ -531,12 +559,15 @@ static void flash_led ( uint8_t count )
     do
     {
 	PROGLED_PORT &= ~(1<<PROGLED_PIN);
-	for ( l=0; l < (F_CPU/500); ++l);
+	for ( l=0; l < (F_CPU/500); ++l)
+            wdt_maybe_ping_constant_time();
+
 	PROGLED_PORT |= (1<<PROGLED_PIN);
-	for ( l=0; l < (F_CPU/800); ++l);
+	for ( l=0; l < (F_CPU/800); ++l)
+            wdt_maybe_ping_constant_time();
     } while (--count);
     for ( l=0; l < (F_CPU/100); ++l )
-	;
+	wdt_maybe_ping_constant_time();
     // the LED indicates an active loader
     PROGLED_PORT &= ~(1<<PROGLED_PIN);
 #endif
@@ -602,6 +633,8 @@ int main(void)
 	leave_bootloader();
 #endif
 
+    wdt_maybe_ping();
+
     /* optionally setup the CPU ports
      */
     init_ports();
@@ -653,6 +686,7 @@ int main(void)
 	msgParseState = ST_START;
 	while ( msgParseState != ST_PROCESS )
 	{
+	    /* recchar() pings WDT */
 	    c = recchar();
 	    switch (msgParseState)
 	    {
@@ -862,8 +896,10 @@ int main(void)
 		unsigned char lockBits = msgBuffer[4];
 
 		lockBits = (~lockBits) & 0x3C;  // mask BLBxx bits
+		wdt_maybe_ping();
 		boot_lock_bits_set(lockBits);   // and program it
-		boot_spm_busy_wait();
+		while (boot_spm_busy())
+		    wdt_maybe_ping();
 
 		msgLength = 3;
 		msgBuffer[1] = STATUS_CMD_OK;
@@ -902,13 +938,17 @@ int main(void)
 		    // erase only main section (bootloader protection)
 		    if  (  eraseAddress < APP_END )
 		    {
+			wdt_maybe_ping();
 			boot_page_erase(eraseAddress);  // Perform page erase
-			boot_spm_busy_wait();       // Wait until the memory is erased.
+			while (boot_spm_busy())         // Wait until the memory is erased.
+			    wdt_maybe_ping();
 			eraseAddress += SPM_PAGESIZE;    // point to next page to be erase
 		    }
 
 		    /* Write FLASH */
 		    do {
+			wdt_maybe_ping();
+
 			lowByte   = *p++;
 			highByte  = *p++;
 
@@ -919,8 +959,10 @@ int main(void)
 			size -= 2;          // Reduce number of bytes to write by two
 		    } while(size);          // Loop until all bytes written
 
+		    wdt_maybe_ping();
 		    boot_page_write(tempaddress);
-		    boot_spm_busy_wait();
+		    while (boot_spm_busy())
+			wdt_maybe_ping();
 		    boot_rww_enable();              // Re-enable the RWW section
 		}
 		else
@@ -935,6 +977,8 @@ int main(void)
 			EECR |= (1<<EEMWE);         // Write data into EEPROM
 			EECR |= (1<<EEWE);
 
+			do
+		            wdt_maybe_ping();
 			while (EECR & (1<<EEWE));   // Wait for write operation to finish
 			size--;                     // Decrease number of bytes to write
 		    } while(size);                  // Loop until all bytes written

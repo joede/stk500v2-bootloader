@@ -39,6 +39,10 @@
  */
 //#define REMOVE_WDT_RESET
 
+/* uncomment to disable periodic pinging of WDT
+ */
+//#define REMOVE_WDT_PING
+
 /* Uncomment to allow protocol to leave the bootloader and jump to the
  * application after programming.
  */
