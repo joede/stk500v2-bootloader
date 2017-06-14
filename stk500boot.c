@@ -577,37 +577,37 @@ static void flash_led ( uint8_t count )
  */
 static void init_ports ( void )
 {
-#ifdef VAL_PORT_A
+#if defined(VAL_PORT_A) && defined(PORTA)
     PORTA = VAL_PORT_A;  DDRA = DIR_PORT_A;
 #endif
-#ifdef VAL_PORT_B
+#if defined(VAL_PORT_B) && defined(PORTB)
     PORTB = VAL_PORT_B;  DDRB = DIR_PORT_B;
 #endif
-#ifdef VAL_PORT_C
+#if defined(VAL_PORT_C) && defined(PORTC)
     PORTC = VAL_PORT_C;  DDRC = DIR_PORT_C;
 #endif
-#ifdef VAL_PORT_D
+#if defined(VAL_PORT_D) && defined(PORTD)
     PORTD = VAL_PORT_D;  DDRD = DIR_PORT_D;
 #endif
-#ifdef VAL_PORT_E
+#if defined(VAL_PORT_E) && defined(PORTE)
     PORTE = VAL_PORT_E;  DDRE = DIR_PORT_E;
 #endif
-#ifdef VAL_PORT_F
+#if defined(VAL_PORT_F) && defined(PORTF)
     PORTF = VAL_PORT_F;  DDRF = DIR_PORT_F;
 #endif
-#ifdef VAL_PORT_G
+#if defined(VAL_PORT_G) && defined(PORTG)
     PORTG = VAL_PORT_G;  DDRG = DIR_PORT_G;
 #endif
-#ifdef VAL_PORT_H
+#if defined(VAL_PORT_H) && defined(PORTH)
     PORTH = VAL_PORT_H;  DDRH = DIR_PORT_H;
 #endif
-#ifdef VAL_PORT_J
+#if defined(VAL_PORT_J) && defined(PORTJ)
     PORTJ = VAL_PORT_J;  DDRJ = DIR_PORT_J;
 #endif
-#ifdef VAL_PORT_K
+#if defined(VAL_PORT_K) && defined(PORTK)
     PORTK = VAL_PORT_K;  DDRK = DIR_PORT_K;
 #endif
-#ifdef VAL_PORT_L
+#if defined(VAL_PORT_L) && defined(PORTL)
     PORTL = VAL_PORT_L;  DDRL = DIR_PORT_L;
 #endif
 }
