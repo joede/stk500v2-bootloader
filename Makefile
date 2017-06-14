@@ -2,8 +2,6 @@
 # Makefile for project stk500boot
 # Author: Peter Fleury
 # File:   $Id: Makefile,v 1.7 2015/08/15 09:10:38 peter Exp $
-#
-# Adjust MCU, F_CPU and BOOTLOADER_ADDRESS below to your AVR target 
 #----------------------------------------------------------------------------
 # usage:
 #
@@ -46,6 +44,8 @@ TARGET = stk500boot
 ## starts at 0x1F000 words => 0x3E000 bytes
 BOOTLOADER_ADDRESS = 0x3E000
 
+# Configuration file name
+CONFIG_FILE = config.h
 
 # List C source files here. (C dependencies are automatically generated.)
 SRC = $(TARGET).c
@@ -79,7 +79,7 @@ OPT = s
 
 
 # Place -D or -U options here
-CDEFS = -DBOOTLOADER_ADDRESS=$(BOOTLOADER_ADDRESS)
+CDEFS = -DBOOTLOADER_ADDRESS=$(BOOTLOADER_ADDRESS) -DCONFIG_FILE='"$(CONFIG_FILE)"'
 
 
 # Place -I options here

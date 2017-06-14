@@ -27,65 +27,14 @@ DESCRIPTION:
     In best case, the size of the bootloader is less than 500 words, so it will
     fit into a 512 word bootloader section!
 
-USAGE:
-
-    - Set AVR MCU type and clock-frequency (F_CPU) in the Makefile.
-    - Set bootloader start address in bytes (BOOTLOADER_ADDRESS) in Makefile
-      this must match selected "Boot Flash section size" fuses below
-    - configure the source in config.h to fit your application. Set the baud rate
-      according to your clock-frequency in order to avoid unstable communication.
-      Check the manuals to see the baud rate error.
-      (AVRISP only works with 115200 bps)
-    - compile/link the bootloader with the supplied Makefile
-    - program the "Boot Flash section size" (BOOTSZ fuses),
-      for boot-size 512 words:  program BOOTSZ1
-    - enable the BOOT Reset Vector (program BOOTRST)
-    - Upload the hex file to the AVR using any ISP programmer
-    - Program Boot Lock Mode to save the bootloader against overwriting.
-    - Reset your AVR while keeping PROG_PIN pulled low
-    - Start AVRISP Programmer (AVRStudio/Tools/Program AVR)
-    - AVRISP will detect the bootloader
-    - Program your application FLASH file and optional EEPROM file using AVRISP
-
-NOTES:
-
-    Entering the bootloader:
-    The bootload is always entered as long as there is no application available
-    (flash at 0x0000 is 0xFF if no application is flashed). If an application
-    is available (which is the normal use case), the bootloader would start the
-    applcation unless the user forces the bootload to enter programming mode.
-    To force this, this release of stk500boot supports two modes.
-        (1) "pin mode": defines a bootmode pin which must be pressed (low active).
-        (2) "forced mode": wait for a pattern at the UART
-
-    Leaving the bootloader:
-    Normally the bootloader accepts further commands after programming.
-    The bootloader exits and starts applicaton code after programming
-    when ENABLE_LEAVE_BOOTLADER is defined.
-    Use Auto Programming mode to programm both flash and eeprom,
-    otherwise bootloader will exit after flash programming.
-
-    AVRdude:
-    Please uncomment #define REMOVE_CMD_SPI_MULTI when using AVRdude.
-    Comment #define REMOVE_PROGRAM_LOCK_BIT_SUPPORT and
-    #define REMOVE_READ_LOCK_FUSE_BIT_SUPPORT to reduce code size.
-    Read Fuse Bits and Read/Write Lock Bits is not supported when using AVRdude.
-
-    Limitations:
-    Erasing the device without flashing, through AVRISP GUI button "Erase Device"
-    is not implemented, due to AVRStudio limitations.
-    Flash is always erased before programming.
-
-APPLICATION NOTES:
-
-    Based on Atmel Application Note AVR109 - Self-programming
-    Based on Atmel Application Note AVR068 - STK500v2 Protocol
+USAGE, NOTES:
+    See README.md.
 
 LICENSE:
 
     Copyright (C) 2006 Peter Fleury
 
-    Modifications (2016) by Jörg Desch
+    Modifications (C) 2016, 2017 by Jörg Desch and Contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -110,7 +59,7 @@ LICENSE:
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
 #include "command.h"
-#include "config.h"
+#include CONFIG_FILE
 
 
 /*
