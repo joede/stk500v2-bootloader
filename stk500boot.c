@@ -864,9 +864,16 @@ int main(void)
 
 	case CMD_LOAD_ADDRESS:
 #if defined(RAMPZ)
-	    address = ( ((address_t)(msgBuffer[1])<<24)|((address_t)(msgBuffer[2])<<16)|((address_t)(msgBuffer[3])<<8)|(msgBuffer[4]) )<<1;
+	    address = ((address_t)(msgBuffer[1]) << 24) |
+		    ((address_t)(msgBuffer[2]) << 16) |
+		    ((address_t)(msgBuffer[3]) << 8) |
+		    (msgBuffer[4]);
+
+	    /* unset address bit 31 which is a request to execute a */
+	    /* "load extended address" command by hardware programmer */
+	    address &= ~((address_t)1 << 31);
 #else
-	    address = ( ((msgBuffer[3])<<8)|(msgBuffer[4]) )<<1;  //convert word to byte address
+	    address = ((msgBuffer[3]) << 8) | (msgBuffer[4]);
 #endif
 	    msgLength = 2;
 	    msgBuffer[1] = STATUS_CMD_OK;
@@ -879,11 +886,11 @@ int main(void)
 		unsigned char *p = msgBuffer+10;
 		unsigned int  data;
 		unsigned char highByte, lowByte;
-		address_t     tempaddress = address;
-
 
 		if ( msgBuffer[0] == CMD_PROGRAM_FLASH_ISP )
 		{
+		    address_t pageaddress = address;
+
 		    // erase only main section (bootloader protection)
 		    if  (  eraseAddress < APP_END )
 		    {
@@ -902,14 +909,14 @@ int main(void)
 			highByte  = *p++;
 
 			data =  (highByte << 8) | lowByte;
-			boot_page_fill(address,data);
+			boot_page_fill(address << 1, data);
 
-			address = address + 2;      // Select next word in memory
+			address++;          // Select next word in memory
 			size -= 2;          // Reduce number of bytes to write by two
 		    } while(size);          // Loop until all bytes written
 
 		    wdt_maybe_ping();
-		    boot_page_write(tempaddress);
+		    boot_page_write(pageaddress << 1);
 		    while (boot_spm_busy())
 			wdt_maybe_ping();
 		    boot_rww_enable();              // Re-enable the RWW section
@@ -952,13 +959,13 @@ int main(void)
 		    // Read FLASH
 		    do {
 #if defined(RAMPZ)
-			data = pgm_read_word_far(address);
+			data = pgm_read_word_far(address << 1);
 #else
-			data = pgm_read_word_near(address);
+			data = pgm_read_word_near(address << 1);
 #endif
 			*p++ = (unsigned char)data;         //LSB
 			*p++ = (unsigned char)(data >> 8);  //MSB
-			address    += 2;     // Select next word in memory
+			address++; // Select next word in memory
 			size -= 2;
 		    }while (size);
 		}
