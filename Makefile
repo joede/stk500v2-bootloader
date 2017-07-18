@@ -2,8 +2,6 @@
 # Makefile for project stk500boot
 # Author: Peter Fleury
 # File:   $Id: Makefile,v 1.7 2015/08/15 09:10:38 peter Exp $
-#
-# Adjust MCU, F_CPU and BOOTLOADER_ADDRESS below to your AVR target 
 #----------------------------------------------------------------------------
 # usage:
 #
@@ -32,6 +30,8 @@ MCU = atmega2560
 #F_CPU = 7372800
 F_CPU = 8000000
 
+# Destination directory for build
+DESTDIR = .
 
 # Target file name (without extension).
 TARGET = stk500boot
@@ -46,6 +46,8 @@ TARGET = stk500boot
 ## starts at 0x1F000 words => 0x3E000 bytes
 BOOTLOADER_ADDRESS = 0x3E000
 
+# Configuration file name
+CONFIG_FILE = config.h
 
 # List C source files here. (C dependencies are automatically generated.)
 SRC = $(TARGET).c
@@ -79,7 +81,7 @@ OPT = s
 
 
 # Place -D or -U options here
-CDEFS = -DBOOTLOADER_ADDRESS=$(BOOTLOADER_ADDRESS)
+CDEFS = -DBOOTLOADER_ADDRESS=$(BOOTLOADER_ADDRESS) -DCONFIG_FILE='"$(CONFIG_FILE)"'
 
 
 # Place -I options here
@@ -101,8 +103,8 @@ CFLAGS += -gdwarf-2
 CFLAGS += -O$(OPT)
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -Wall -Wstrict-prototypes
-CFLAGS += -Wa,-adhlns=$(<:.c=.lst)
-CFLAGS += -save-temps
+CFLAGS += -Wa,-adhlns="$(DESTDIR)/$(<:.c=.lst)"
+CFLAGS += -pipe
 CFLAGS += -fno-move-loop-invariants -fno-tree-scev-cprop -fno-inline-small-functions -fno-jump-tables 
 
 
@@ -159,7 +161,7 @@ EXTMEMOPTS =
 #  -Wl,...:     tell GCC to pass this to linker.
 #    -Map:      create map file
 #    --cref:    add cross reference to  map file
-LDFLAGS = -Wl,-Map=$(TARGET).map,--cref
+LDFLAGS = -Wl,-Map="$(DESTDIR)/$(TARGET).map",--cref
 LDFLAGS += $(EXTMEMOPTS)
 LDFLAGS += $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 
@@ -178,7 +180,7 @@ AVRDUDE_PROGRAMMER = usbasp
 # usb, com1 = serial port, lpt1 = parallel port 
 AVRDUDE_PORT = USB
 
-AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
+AVRDUDE_WRITE_FLASH = -U flash:w:"$(DESTDIR)/$(TARGET).hex"
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 
 # Uncomment the following if you do /not/ wish a verification to be performed after programming the device.
@@ -249,14 +251,14 @@ MSG_CLEANING = Cleaning project:
 
 
 # Define all object files.
-OBJ = $(SRC:.c=.o) $(ASRC:.S=.o)
+OBJ = $(addprefix $(DESTDIR)/,$(SRC:.c=.o)) $(addprefix $(DESTDIR)/,$(ASRC:.S=.o))
 
 # Define all listing files.
-LST = $(SRC:.c=.lst) $(ASRC:.S=.lst) 
+LST = $(addprefix $(DESTDIR)/,$(SRC:.c=.lst)) $(addprefix $(DESTDIR)/,$(ASRC:.S=.lst))
 
 
 # Compiler flags to generate dependency files.
-GENDEPFLAGS = -MD -MP -MF .dep/$(@F).d
+GENDEPFLAGS = -MD -MP -MF "$(DESTDIR)/.dep/$(@F).d"
 
 
 # Combine all necessary flags and optional flags.
@@ -266,7 +268,7 @@ ALL_ASFLAGS = -mmcu=$(MCU) -I. $(ASFLAGS)
 
 
 # Default target.
-all: gccversion $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).sym size
+all: gccversion $(DESTDIR)/$(TARGET).elf $(DESTDIR)/$(TARGET).hex $(DESTDIR)/$(TARGET).eep $(DESTDIR)/$(TARGET).lss $(DESTDIR)/$(TARGET).sym size
 
 
 # Display compiler version information.
@@ -295,49 +297,49 @@ gccversion :
 	$(NM) -n $< > $@
 
 # Link: create ELF output file from object files.
-.SECONDARY : $(TARGET).elf
+.SECONDARY : $(DESTDIR)/$(TARGET).elf
 .PRECIOUS : $(OBJ)
 %.elf: $(OBJ)
 	@echo $(MSG_LINKING) $@
-	$(CC) -mmcu=$(MCU) $(LDFLAGS) $^ --output $(@F) 
+	$(CC) -mmcu=$(MCU) $(LDFLAGS) $^ --output $@
 
 # Compile: create object files from C source files.
-%.o : %.c
+$(DESTDIR)/%.o : %.c
 	@echo $(MSG_COMPILING) $<
-	$(CC) -c $(ALL_CFLAGS) $< -o $(@F)
+	$(CC) -c $(ALL_CFLAGS) $< -o $@
 
 # Compile: create assembler files from C source files.
-%.s : %.c
-	$(CC) -S $(ALL_CFLAGS) $< -o $(@F)
+$(DESTDIR)/%.s : %.c
+	$(CC) -S $(ALL_CFLAGS) $< -o $@
 
 # Assemble: create object files from assembler source files.
-%.o : %.S
+$(DESTDIR)/%.o : %.S
 	@echo $(MSG_ASSEMBLING) $<
-	$(CC) -c $(ALL_ASFLAGS) $< -o $(@F)
+	$(CC) -c $(ALL_ASFLAGS) $< -o $@
 
 # Create preprocessed source for use in sending a bug report.
-%.i : %.c
-	$(CC) -E -mmcu=$(MCU) -I. $(CFLAGS) $< -o $(@F) 
+$(DESTDIR)/%.i : %.c
+	$(CC) -E -mmcu=$(MCU) -I. $(CFLAGS) $< -o $@
 
 
 # Display size of file.
-size: ${TARGET}.elf
-	@avr-size -C --mcu=${MCU} ${TARGET}.elf
+size: $(DESTDIR)/${TARGET}.elf
+	@avr-size -C --mcu=${MCU} "$(DESTDIR)/${TARGET}.elf" || avr-size --format=sysv "$(DESTDIR)/${TARGET}.elf"
 
 
 # Program the device.  
-program: $(TARGET).hex $(TARGET).eep
+program: $(DESTDIR)/$(TARGET).hex $(DESTDIR)/$(TARGET).eep
 	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH) $(AVRDUDE_WRITE_EEPROM)
 
 
 # Delete all generated files.
 clean:
 	@echo $(MSG_CLEANING)
-	$(REMOVE) $(TARGET).hex $(TARGET).eep $(TARGET).cof $(TARGET).elf $(TARGET).map $(TARGET).sym $(TARGET).lss $(OBJ) $(LST) $(SRC:.c=.s) $(SRC:.c=.d) $(SRC:.c=.i) .dep/
+	$(REMOVE) "$(DESTDIR)/$(TARGET).hex" "$(DESTDIR)/$(TARGET).eep" "$(DESTDIR)/$(TARGET).cof" "$(DESTDIR)/$(TARGET).elf" "$(DESTDIR)/$(TARGET).map" "$(DESTDIR)/$(TARGET).sym" "$(DESTDIR)/$(TARGET).lss" $(OBJ) $(LST) $(addprefix $(DESTDIR)/,$(SRC:.c=.s)) $(addprefix $(DESTDIR)/,$(SRC:.c=.d)) $(addprefix $(DESTDIR)/,$(SRC:.c=.i)) "$(DESTDIR)/.dep/"
 
 
 # Include the dependency files.
--include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*) 
+-include $(shell mkdir "$(DESTDIR)/.dep" 2>/dev/null) $(wildcard $(DESTDIR)/.dep/*)
 #-include $(shell mkdir .dep 2>NUL) $(wildcard .dep/*)
 
 

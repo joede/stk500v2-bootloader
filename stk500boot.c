@@ -27,65 +27,14 @@ DESCRIPTION:
     In best case, the size of the bootloader is less than 500 words, so it will
     fit into a 512 word bootloader section!
 
-USAGE:
-
-    - Set AVR MCU type and clock-frequency (F_CPU) in the Makefile.
-    - Set bootloader start address in bytes (BOOTLOADER_ADDRESS) in Makefile
-      this must match selected "Boot Flash section size" fuses below
-    - configure the source in config.h to fit your application. Set the baud rate
-      according to your clock-frequency in order to avoid unstable communication.
-      Check the manuals to see the baud rate error.
-      (AVRISP only works with 115200 bps)
-    - compile/link the bootloader with the supplied Makefile
-    - program the "Boot Flash section size" (BOOTSZ fuses),
-      for boot-size 512 words:  program BOOTSZ1
-    - enable the BOOT Reset Vector (program BOOTRST)
-    - Upload the hex file to the AVR using any ISP programmer
-    - Program Boot Lock Mode to save the bootloader against overwriting.
-    - Reset your AVR while keeping PROG_PIN pulled low
-    - Start AVRISP Programmer (AVRStudio/Tools/Program AVR)
-    - AVRISP will detect the bootloader
-    - Program your application FLASH file and optional EEPROM file using AVRISP
-
-NOTES:
-
-    Entering the bootloader:
-    The bootload is always entered as long as there is no application available
-    (flash at 0x0000 is 0xFF if no application is flashed). If an application
-    is available (which is the normal use case), the bootloader would start the
-    applcation unless the user forces the bootload to enter programming mode.
-    To force this, this release of stk500boot supports two modes.
-        (1) "pin mode": defines a bootmode pin which must be pressed (low active).
-        (2) "forced mode": wait for a pattern at the UART
-
-    Leaving the bootloader:
-    Normally the bootloader accepts further commands after programming.
-    The bootloader exits and starts applicaton code after programming
-    when ENABLE_LEAVE_BOOTLADER is defined.
-    Use Auto Programming mode to programm both flash and eeprom,
-    otherwise bootloader will exit after flash programming.
-
-    AVRdude:
-    Please uncomment #define REMOVE_CMD_SPI_MULTI when using AVRdude.
-    Comment #define REMOVE_PROGRAM_LOCK_BIT_SUPPORT and
-    #define REMOVE_READ_LOCK_FUSE_BIT_SUPPORT to reduce code size.
-    Read Fuse Bits and Read/Write Lock Bits is not supported when using AVRdude.
-
-    Limitations:
-    Erasing the device without flashing, through AVRISP GUI button "Erase Device"
-    is not implemented, due to AVRStudio limitations.
-    Flash is always erased before programming.
-
-APPLICATION NOTES:
-
-    Based on Atmel Application Note AVR109 - Self-programming
-    Based on Atmel Application Note AVR068 - STK500v2 Protocol
+USAGE, NOTES:
+    See README.md.
 
 LICENSE:
 
     Copyright (C) 2006 Peter Fleury
 
-    Modifications (2016) by Jörg Desch
+    Modifications (C) 2016, 2017 by Jörg Desch and Contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -103,12 +52,14 @@ LICENSE:
 *****************************************************************************/
 
 #include <inttypes.h>
+#include <avr/cpufunc.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/boot.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include "command.h"
-#include "config.h"
+#include CONFIG_FILE
 
 
 /*
@@ -349,11 +300,13 @@ typedef uint16_t address_t;
 /*
  * function prototypes
  */
+static inline void wdt_maybe_ping(void);
+static inline void wdt_maybe_ping_constant_time(void);
 static void sendchar(char c);
 static unsigned char recchar(void);
 static void leave_bootloader(void);
-static char haveChar(char expected);
 #if defined(REMOVE_PROG_PIN_ENTER) && !defined(REMOVE_FORCED_MODE_ENTER)
+static char haveChar(char expected);
 static char check_forced_enter(void);
 #endif
 static void flash_led(uint8_t count);
@@ -371,12 +324,29 @@ void __jumpMain(void)
     asm volatile ( ".set __stack, %0" :: "i" (RAMEND) );       // init stack
     asm volatile ( "clr __zero_reg__" );                       // GCC depends on register r1 set to 0
     asm volatile ( "out %0, __zero_reg__" :: "I" (_SFR_IO_ADDR(SREG)) );  // set SREG to 0
+    wdt_maybe_ping();
 #if !defined(REMOVE_PROG_PIN_ENTER) && !defined(REMOVE_PROG_PIN_PULLUP)
     PROG_PORT |= (1<<PROG_PIN);                                // Enable internal pullup
 #endif
     asm volatile ( "rjmp main");                               // jump to main()
 }
 
+static inline void wdt_maybe_ping(void)
+{
+#ifndef REMOVE_WDT_PING
+    wdt_reset();
+#endif
+}
+
+static inline void wdt_maybe_ping_constant_time(void)
+{
+/* hope WDT reset and NOP insns take the same time in every AVR uC */
+#ifndef REMOVE_WDT_PING
+    wdt_reset();
+#else
+    _NOP();
+#endif
+}
 
 /*
  * send single byte to USART, wait until transmission is completed
@@ -384,7 +354,9 @@ void __jumpMain(void)
 static void sendchar(char c)
 {
     UART_DATA_REG = c;                                         // prepare transmission
+    wdt_maybe_ping();
     while (!(UART_STATUS_REG & (1 << UART_TRANSMIT_COMPLETE)));// wait until byte sent
+    wdt_maybe_ping();                                          // TX should take less than WDT period
     UART_STATUS_REG |= (1 << UART_TRANSMIT_COMPLETE);          // delete TXCflag
 }
 
@@ -393,7 +365,10 @@ static void sendchar(char c)
  */
 static unsigned char recchar(void)
 {
+    do
+	wdt_maybe_ping();
     while(!(UART_STATUS_REG & (1 << UART_RECEIVE_COMPLETE)));  // wait for data
+
     //~ if ( ((UART_STATUS_REG&(1<<UART_FRAME_ERROR)) | (UART_STATUS_REG&(1<<UART_DATA_OVERRUN))) )
 	//~ return 0;
     return UART_DATA_REG;
@@ -407,6 +382,7 @@ static unsigned char recchar(void)
  * compare it. In this case a returned \x true means that we have received
  * a character. Even the overrun error and the frame error will be ignored.
  */
+#if defined(REMOVE_PROG_PIN_ENTER) && !defined(REMOVE_FORCED_MODE_ENTER)
 static char haveChar ( char expected )
 {
     uint8_t d, s;
@@ -422,7 +398,7 @@ static char haveChar ( char expected )
 	return 0;
     return ((expected==0x00)||(expected==d))?1:0;
 }
-
+#endif
 
 /* Leave the bootloader if application code is found.
  */
@@ -446,6 +422,8 @@ static void leave_bootloader (void)
     PROG_PORT &= ~(1<<PROG_PIN);    // set to default
 #endif
     boot_rww_enable();              // enable application section
+
+    wdt_maybe_ping();
 
     // Jump to Reset vector in Application Section. The address is always 22bit (three bytes), even if the MCU
     // hasn't more than 128 kB flash. The wrong stack is resetted by the startup code of the runtime of the
@@ -483,7 +461,7 @@ static char check_forced_enter ( void )
     {
 	if ( count++ )
 	    for (l=0; l<(F_CPU/200); ++l)
-		;
+		wdt_maybe_ping_constant_time();
 	if ( haveChar('*') )
 	{
 	    ++matches;
@@ -504,7 +482,7 @@ static char check_forced_enter ( void )
 	sendchar('*');
 	if ( count++ )
 	    for (l=0; l<(F_CPU/200); ++l)
-		;
+		wdt_maybe_ping_constant_time();
 	if ( !haveChar(0x00) )
 	    ++matches;
 	else
@@ -530,12 +508,15 @@ static void flash_led ( uint8_t count )
     do
     {
 	PROGLED_PORT &= ~(1<<PROGLED_PIN);
-	for ( l=0; l < (F_CPU/500); ++l);
+	for ( l=0; l < (F_CPU/500); ++l)
+            wdt_maybe_ping_constant_time();
+
 	PROGLED_PORT |= (1<<PROGLED_PIN);
-	for ( l=0; l < (F_CPU/800); ++l);
+	for ( l=0; l < (F_CPU/800); ++l)
+            wdt_maybe_ping_constant_time();
     } while (--count);
     for ( l=0; l < (F_CPU/100); ++l )
-	;
+	wdt_maybe_ping_constant_time();
     // the LED indicates an active loader
     PROGLED_PORT &= ~(1<<PROGLED_PIN);
 #endif
@@ -545,37 +526,37 @@ static void flash_led ( uint8_t count )
  */
 static void init_ports ( void )
 {
-#ifdef VAL_PORT_A
+#if defined(VAL_PORT_A) && defined(PORTA)
     PORTA = VAL_PORT_A;  DDRA = DIR_PORT_A;
 #endif
-#ifdef VAL_PORT_B
+#if defined(VAL_PORT_B) && defined(PORTB)
     PORTB = VAL_PORT_B;  DDRB = DIR_PORT_B;
 #endif
-#ifdef VAL_PORT_C
+#if defined(VAL_PORT_C) && defined(PORTC)
     PORTC = VAL_PORT_C;  DDRC = DIR_PORT_C;
 #endif
-#ifdef VAL_PORT_D
+#if defined(VAL_PORT_D) && defined(PORTD)
     PORTD = VAL_PORT_D;  DDRD = DIR_PORT_D;
 #endif
-#ifdef VAL_PORT_E
+#if defined(VAL_PORT_E) && defined(PORTE)
     PORTE = VAL_PORT_E;  DDRE = DIR_PORT_E;
 #endif
-#ifdef VAL_PORT_F
+#if defined(VAL_PORT_F) && defined(PORTF)
     PORTF = VAL_PORT_F;  DDRF = DIR_PORT_F;
 #endif
-#ifdef VAL_PORT_G
+#if defined(VAL_PORT_G) && defined(PORTG)
     PORTG = VAL_PORT_G;  DDRG = DIR_PORT_G;
 #endif
-#ifdef VAL_PORT_H
+#if defined(VAL_PORT_H) && defined(PORTH)
     PORTH = VAL_PORT_H;  DDRH = DIR_PORT_H;
 #endif
-#ifdef VAL_PORT_J
+#if defined(VAL_PORT_J) && defined(PORTJ)
     PORTJ = VAL_PORT_J;  DDRJ = DIR_PORT_J;
 #endif
-#ifdef VAL_PORT_K
+#if defined(VAL_PORT_K) && defined(PORTK)
     PORTK = VAL_PORT_K;  DDRK = DIR_PORT_K;
 #endif
-#ifdef VAL_PORT_L
+#if defined(VAL_PORT_L) && defined(PORTL)
     PORTL = VAL_PORT_L;  DDRL = DIR_PORT_L;
 #endif
 }
@@ -600,6 +581,8 @@ int main(void)
     if ( _MCUSR & _BV(WDRF) )
 	leave_bootloader();
 #endif
+
+    wdt_maybe_ping();
 
     /* optionally setup the CPU ports
      */
@@ -652,6 +635,7 @@ int main(void)
 	msgParseState = ST_START;
 	while ( msgParseState != ST_PROCESS )
 	{
+	    /* recchar() pings WDT */
 	    c = recchar();
 	    switch (msgParseState)
 	    {
@@ -861,8 +845,10 @@ int main(void)
 		unsigned char lockBits = msgBuffer[4];
 
 		lockBits = (~lockBits) & 0x3C;  // mask BLBxx bits
+		wdt_maybe_ping();
 		boot_lock_bits_set(lockBits);   // and program it
-		boot_spm_busy_wait();
+		while (boot_spm_busy())
+		    wdt_maybe_ping();
 
 		msgLength = 3;
 		msgBuffer[1] = STATUS_CMD_OK;
@@ -878,9 +864,16 @@ int main(void)
 
 	case CMD_LOAD_ADDRESS:
 #if defined(RAMPZ)
-	    address = ( ((address_t)(msgBuffer[1])<<24)|((address_t)(msgBuffer[2])<<16)|((address_t)(msgBuffer[3])<<8)|(msgBuffer[4]) )<<1;
+	    address = ((address_t)(msgBuffer[1]) << 24) |
+		    ((address_t)(msgBuffer[2]) << 16) |
+		    ((address_t)(msgBuffer[3]) << 8) |
+		    (msgBuffer[4]);
+
+	    /* unset address bit 31 which is a request to execute a */
+	    /* "load extended address" command by hardware programmer */
+	    address &= ~((address_t)1 << 31);
 #else
-	    address = ( ((msgBuffer[3])<<8)|(msgBuffer[4]) )<<1;  //convert word to byte address
+	    address = ((msgBuffer[3]) << 8) | (msgBuffer[4]);
 #endif
 	    msgLength = 2;
 	    msgBuffer[1] = STATUS_CMD_OK;
@@ -893,33 +886,39 @@ int main(void)
 		unsigned char *p = msgBuffer+10;
 		unsigned int  data;
 		unsigned char highByte, lowByte;
-		address_t     tempaddress = address;
-
 
 		if ( msgBuffer[0] == CMD_PROGRAM_FLASH_ISP )
 		{
+		    address_t pageaddress = address;
+
 		    // erase only main section (bootloader protection)
 		    if  (  eraseAddress < APP_END )
 		    {
+			wdt_maybe_ping();
 			boot_page_erase(eraseAddress);  // Perform page erase
-			boot_spm_busy_wait();       // Wait until the memory is erased.
+			while (boot_spm_busy())         // Wait until the memory is erased.
+			    wdt_maybe_ping();
 			eraseAddress += SPM_PAGESIZE;    // point to next page to be erase
 		    }
 
 		    /* Write FLASH */
 		    do {
+			wdt_maybe_ping();
+
 			lowByte   = *p++;
 			highByte  = *p++;
 
 			data =  (highByte << 8) | lowByte;
-			boot_page_fill(address,data);
+			boot_page_fill(address << 1, data);
 
-			address = address + 2;      // Select next word in memory
+			address++;          // Select next word in memory
 			size -= 2;          // Reduce number of bytes to write by two
 		    } while(size);          // Loop until all bytes written
 
-		    boot_page_write(tempaddress);
-		    boot_spm_busy_wait();
+		    wdt_maybe_ping();
+		    boot_page_write(pageaddress << 1);
+		    while (boot_spm_busy())
+			wdt_maybe_ping();
 		    boot_rww_enable();              // Re-enable the RWW section
 		}
 		else
@@ -934,6 +933,8 @@ int main(void)
 			EECR |= (1<<EEMWE);         // Write data into EEPROM
 			EECR |= (1<<EEWE);
 
+			do
+		            wdt_maybe_ping();
 			while (EECR & (1<<EEWE));   // Wait for write operation to finish
 			size--;                     // Decrease number of bytes to write
 		    } while(size);                  // Loop until all bytes written
@@ -958,13 +959,13 @@ int main(void)
 		    // Read FLASH
 		    do {
 #if defined(RAMPZ)
-			data = pgm_read_word_far(address);
+			data = pgm_read_word_far(address << 1);
 #else
-			data = pgm_read_word_near(address);
+			data = pgm_read_word_near(address << 1);
 #endif
 			*p++ = (unsigned char)data;         //LSB
 			*p++ = (unsigned char)(data >> 8);  //MSB
-			address    += 2;     // Select next word in memory
+			address++; // Select next word in memory
 			size -= 2;
 		    }while (size);
 		}

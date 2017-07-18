@@ -1,16 +1,6 @@
 /* =========== CONFIGURATION OF THE STK500v2 BOOTLOADER ========================
  */
 
-/* This macro converts a sequence of 0 and 1 into a BYTE. The sequence start
- * with the MSB! Make shure that you allways define all 8 bits!
- * Sample: BIN2BYTE(11001010) is converted to 0xCA (1100->C & 1010->A).
- */
-#define BIN2BYTE(a) ( ((0x##a##L>>21) & 0x80) + ((0x##a##L>>18) & 0x40) \
-                    + ((0x##a##L>>15) & 0x20) + ((0x##a##L>>12) & 0x10) \
-                    + ((0x##a##L>>9) & 0x08) + ((0x##a##L>>6) & 0x04)  \
-                    + ((0x##a##L>>3) & 0x02) + (0x##a##L & 0x01))
-
-
 /* ----------- configuration of the bootloader features ------------------------
  *
  * Uncomment the following REMOVE_* lines to disable features in order to
@@ -48,6 +38,10 @@
 /* uncomment to enable handling of WDT resets
  */
 //#define REMOVE_WDT_RESET
+
+/* uncomment to disable periodic pinging of WDT
+ */
+//#define REMOVE_WDT_PING
 
 /* Uncomment to allow protocol to leave the bootloader and jump to the
  * application after programming.
@@ -105,38 +99,37 @@
  * DIR_PORT_* !
  */
 
-#define DIR_PORT_A  BIN2BYTE(00000000)
-#define VAL_PORT_A  BIN2BYTE(11111111)
+#define DIR_PORT_A  0b00000000
+#define VAL_PORT_A  0b11111111
 
-#define DIR_PORT_B  BIN2BYTE(00000000)
-#define VAL_PORT_B  BIN2BYTE(11111111)
+#define DIR_PORT_B  0b00000000
+#define VAL_PORT_B  0b11111111
 
-#define DIR_PORT_C  BIN2BYTE(00000000)
-#define VAL_PORT_C  BIN2BYTE(11111111)
+#define DIR_PORT_C  0b00000000
+#define VAL_PORT_C  0b11111111
 
-#define DIR_PORT_D  BIN2BYTE(11001001)
-#define VAL_PORT_D  BIN2BYTE(11111111)
+#define DIR_PORT_D  0b11001001
+#define VAL_PORT_D  0b11111111
 
-#define DIR_PORT_E  BIN2BYTE(00000111)
-#define VAL_PORT_E  BIN2BYTE(00000000)
+#define DIR_PORT_E  0b00000111
+#define VAL_PORT_E  0b00000000
 
-#define DIR_PORT_F  BIN2BYTE(00100000)
-#define VAL_PORT_F  BIN2BYTE(11111111)
+#define DIR_PORT_F  0b00100000
+#define VAL_PORT_F  0b11111111
 
-#define DIR_PORT_G  BIN2BYTE(00000000)
-#define VAL_PORT_G  BIN2BYTE(11111111)
+#define DIR_PORT_G  0b00000000
+#define VAL_PORT_G  0b11111111
 
-#define DIR_PORT_H  BIN2BYTE(00000000)
-#define VAL_PORT_H  BIN2BYTE(11111111)
+#define DIR_PORT_H  0b00000000
+#define VAL_PORT_H  0b11111111
 
-#define DIR_PORT_J  BIN2BYTE(00000000)
-#define VAL_PORT_J  BIN2BYTE(11111111)
+#define DIR_PORT_J  0b00000000
+#define VAL_PORT_J  0b11111111
 
-#define DIR_PORT_K  BIN2BYTE(00000000)
-#define VAL_PORT_K  BIN2BYTE(11111111)
+#define DIR_PORT_K  0b00000000
+#define VAL_PORT_K  0b11111111
 
-#define DIR_PORT_L  BIN2BYTE(00000000)
-#define VAL_PORT_L  BIN2BYTE(11111111)
-
+#define DIR_PORT_L  0b00000000
+#define VAL_PORT_L  0b11111111
 
 /* =========== END OF CONFIGURATION ========================================= */

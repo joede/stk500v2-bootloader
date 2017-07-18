@@ -27,6 +27,34 @@ $ edit config.h Makefile
 $ make
 ~~~
 
+Alternatively, you can copy `config.h` to `config-myproject.h` (or to some other name of your choosing)
+and then adapt it to your needs.
+Likewise, instead of changing `Makefile` you can pass the required values as parameters to make, like:
+`make MCU=atmega2561 F_CPU=7372800 BOOTLOADER_ADDRESS=0x1C00 CONFIG_FILE='config-myproject.h'`
+
+This way, you can have multiple config files prepared for multiple projects or build variants in an one
+source tree.
+
+~~~shell
+$ git clone https://github.com/joede/stk500v2-bootloader.git
+$ cd stk500v2-bootloader
+$ cp config.h config-myproject-foo.h
+$ edit config-myproject-foo.h
+$ make MCU=atmega2561 F_CPU=7372800 BOOTLOADER_ADDRESS=0x1C00 CONFIG_FILE='config-myproject-foo.h'
+$ make clean
+$ cp config.h config-myproject-bar.h
+$ edit config-myproject-bar.h
+$ make MCU=atmega1284 F_CPU=8000000 BOOTLOADER_ADDRESS=0x3E000 CONFIG_FILE='config-myproject-bar.h'
+~~~
+
+You can also provide a `DESTDIR` parameter to make in order to have a separate build tree.
+Make sure that you also add the required path to `CONFIG_FILE` if it happens to reside in the build directory.
+
+~~~shell
+$ mkdir board1
+$ make DESTDIR="board1" MCU=atmega1284 F_CPU=8000000 BOOTLOADER_ADDRESS=0x3E000 CONFIG_FILE='board1/config.h'
+~~~
+
 ## Overview
 
 This program allows an AVR with bootloader capabilities to read/write its own
@@ -48,14 +76,39 @@ fit into a 512 word bootloader section!
 
 ## Usage
 
+### Via changes in a local branch
+
 - Set AVR MCU type and clock-frequency (`F_CPU`) in the `Makefile`.
 - Set bootloader start address in bytes (`BOOTLOADER_ADDRESS`) in `Makefile`
-  this must match selected "Boot Flash section size" fuses below
+  this must match selected "Boot Flash section size" fuses in common steps below
 - configure the source in `config.h` to fit your application. Set the baud rate
   according to your clock-frequency in order to avoid unstable communication.
   Check the manuals to see the baud rate error.
   (AVRISP only works with 115200 bps)
 - compile/link the bootloader with the supplied `Makefile`.
+- follow the common steps below.
+
+### Via a separate configuration
+
+- Copy `config.h` to `config-myproject.h` or some other name.
+- Configure the source in `config-myproject.h` to fit your application.
+  Set the baud rate according to your clock-frequency in order to avoid unstable
+  communication.
+  Check the manuals to see the baud rate error
+  (AVRISP only works with 115200 bps).
+- Consult `Makefile` for possible settings and defaults.
+  You'll probably need to set:
+  - AVR MCU type (`MCU`) and clock-frequency (`F_CPU`).
+  - Bootloader start address in bytes (`BOOTLOADER_ADDRESS`),
+    this must match selected "Boot Flash section size" fuses in common steps below.
+  - Configuration file name (`CONFIG_FILE`).
+- Compile/link the bootloader with the supplied `Makefile`,
+  providing settings from the previous point as parameters to `make`
+  (like `make MCU=atmega2561 F_CPU=7372800 CONFIG_FILE=config-myproject.h`).
+- Follow the common steps below.
+
+### Common steps
+
 - program the "Boot Flash section size" (BOOTSZ fuses),
   for boot-size 512 words:  program BOOTSZ1
 - enable the BOOT Reset Vector (program BOOTRST)
@@ -102,7 +155,7 @@ otherwise bootloader will exit after flash programming.
 Please uncomment `#define REMOVE_CMD_SPI_MULTI` when using AVRdude.
 Comment `#define REMOVE_PROGRAM_LOCK_BIT_SUPPORT` and
 `#define REMOVE_READ_LOCK_FUSE_BIT_SUPPORT` to reduce code size. All these
-defines are located in `config.h`.
+defines are located in your config file.
 
 Read Fuse Bits and Read/Write Lock Bits is not supported when using AVRdude!
 
@@ -123,7 +176,7 @@ Flash is always erased before programming.
 
 Copyright (C) 2006 Peter Fleury
 
-Modifications (C) 2016 Jörg Desch
+Modifications (C) 2016, 2017 Jörg Desch and Contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
