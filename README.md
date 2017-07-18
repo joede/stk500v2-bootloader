@@ -47,6 +47,14 @@ $ edit config-myproject-bar.h
 $ make MCU=atmega1284 F_CPU=8000000 BOOTLOADER_ADDRESS=0x3E000 CONFIG_FILE='config-myproject-bar.h'
 ~~~
 
+You can also provide a `DESTDIR` parameter to make in order to have a separate build tree.
+Make sure that you also add the required path to `CONFIG_FILE` if it happens to reside in the build directory.
+
+~~~shell
+$ mkdir board1
+$ make DESTDIR="board1" MCU=atmega1284 F_CPU=8000000 BOOTLOADER_ADDRESS=0x3E000 CONFIG_FILE='board1/config.h'
+~~~
+
 ## Overview
 
 This program allows an AVR with bootloader capabilities to read/write its own
