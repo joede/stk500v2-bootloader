@@ -2,7 +2,7 @@
 Title:     STK500v2 compatible bootloader
 Author:    Peter Fleury  <pfleury@gmx.ch> http://tinyurl.com/peterfleury
            Joerg Desch <github@jdesch.de> https://github.com/joede/stk500v2-bootloader
-Release:   1.1
+Release:   1.2
 File:      stk500boot.c
 Compiler:  avr-gcc 4.8.1 / avr-libc 1.8
 Hardware:  All AVRs with bootloader support

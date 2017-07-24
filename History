@@ -5,11 +5,23 @@
                   Project: STK500v2 Bootloader
                    Author: Peter Fleury  <pfleury@gmx.ch>
                            (changes by) J. Desch <github@jdesch.de>
-          Current Release: 1.1
+          Current Release: 1.2
 
 +=========================================================================+
 |                         Copyright (c) J. Desch                          |
 +=========================================================================+
+
+2017/07/24 - jd
+
+    * increased version to 1.2
+
+    ==> pull request #2 by Maciej S. Szmigiero
+    
+    * Added a fix for EEPROM reading / writing at nonzero base address
+      (tested on Atmega 1284).
+    * ability to have separate build tree(s) from the source one.
+    * support for AVR's watchdog
+
 
 2016/10/12 - jd
 
