@@ -23,8 +23,10 @@ cases, all the changes must be done only in `config.h` and `Makefile`.
 $ git clone https://github.com/joede/stk500v2-bootloader.git
 $ cd stk500v2-bootloader
 $ git checkout -b tmp-my-funny-project
-$ edit config.h Makefile
+$ touch PRODUCT.md
+$ edit config.h Makefile PRODUCT.md
 $ make
+$ git add . && git commit -m "Bootloader for product"
 ~~~
 
 ## Overview
